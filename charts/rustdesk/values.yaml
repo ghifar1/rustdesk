@@ -28,7 +28,8 @@ securityContext: {}
 
 # Leave unset unless you need to supply a custom entrypoint.
 command: null
-args: []
+# Optional extra arguments passed to the container.
+args: null
 
 # -- Server-specific options. Adjust RELAY endpoint behaviour here.
 server:

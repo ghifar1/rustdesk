@@ -44,13 +44,15 @@ spec:
         - name: {{ include "rustdesk.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- with .Values.command }}
+          {{- $command := .Values.command | default (list) }}
+          {{- if gt (len $command) 0 }}
           command:
-            {{- toYaml . | nindent 12 }}
+            {{- toYaml $command | nindent 12 }}
           {{- end }}
-          {{- with .Values.args }}
+          {{- $args := .Values.args | default (list) }}
+          {{- if gt (len $args) 0 }}
           args:
-            {{- toYaml . | nindent 12 }}
+            {{- toYaml $args | nindent 12 }}
           {{- end }}
           {{- with .Values.securityContext }}
           securityContext:

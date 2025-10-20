@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tcp-services
+  namespace: kube-system
+data:
+  "21115": "rustdesk/rustdesk-rustdesk:21115"
+  "21116": "rustdesk/rustdesk-rustdesk:21116"
+  "21117": "rustdesk/rustdesk-relay:21117"
+  "21118": "rustdesk/rustdesk-rustdesk:21118"
+  "21119": "rustdesk/rustdesk-relay:21119"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: udp-services
+  namespace: kube-system
+data:
+  "21116": "rustdesk/rustdesk-udp:21116"

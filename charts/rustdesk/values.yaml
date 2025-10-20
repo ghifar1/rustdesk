@@ -26,7 +26,8 @@ podSecurityContext: {}
 
 securityContext: {}
 
-command: []
+# Leave unset unless you need to supply a custom entrypoint.
+command: null
 args: []
 
 # -- Server-specific options. Adjust RELAY endpoint behaviour here.

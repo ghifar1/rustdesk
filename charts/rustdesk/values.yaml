@@ -26,10 +26,11 @@ podSecurityContext: {}
 
 securityContext: {}
 
-# Leave unset unless you need to supply a custom entrypoint.
-command: null
+# Default container entrypoint; override only if you replace /init.
+command:
+  - /init
 # Optional extra arguments passed to the container.
-args: null
+args: []
 
 # -- Server-specific options. Adjust RELAY endpoint behaviour here.
 server:

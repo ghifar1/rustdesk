@@ -26,12 +26,6 @@ podSecurityContext: {}
 
 securityContext: {}
 
-# Default container entrypoint; override only if you replace /init.
-command:
-  - /init
-# Optional extra arguments passed to the container.
-args: []
-
 # -- Server-specific options. Adjust RELAY endpoint behaviour here.
 server:
   # relayAddress overrides RELAY entirely when set (host:port or templated string).
@@ -41,41 +35,73 @@ server:
   relayPort: 21117
   encryptedOnly: false
 
+# Global environment customisations merged into each container.
 env: []
 envFrom: []
 
-# Health probes reuse the bundled /usr/bin/healthcheck.sh from the upstream image.
-livenessProbe:
-  enabled: true
-  exec:
-    command:
-      - /usr/bin/healthcheck.sh
-  initialDelaySeconds: 15
-  periodSeconds: 15
-  timeoutSeconds: 5
-  successThreshold: 1
-  failureThreshold: 3
+# hbbs rendezvous container configuration.
+hbbs:
+  command: []
+  args: []
+  env: []
+  livenessProbe:
+    enabled: true
+    tcpSocket:
+      port: 21115
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    tcpSocket:
+      port: 21115
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+  startupProbe:
+    enabled: true
+    tcpSocket:
+      port: 21115
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 12
 
-readinessProbe:
-  enabled: true
-  exec:
-    command:
-      - /usr/bin/healthcheck.sh
-  initialDelaySeconds: 5
-  periodSeconds: 10
-  timeoutSeconds: 3
-  successThreshold: 1
-  failureThreshold: 3
-
-startupProbe:
-  enabled: true
-  exec:
-    command:
-      - /usr/bin/healthcheck.sh
-  initialDelaySeconds: 5
-  periodSeconds: 5
-  timeoutSeconds: 2
-  failureThreshold: 12
+# hbbr relay container configuration.
+hbbr:
+  command: []
+  args: []
+  env: []
+  livenessProbe:
+    enabled: true
+    tcpSocket:
+      port: 21117
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    tcpSocket:
+      port: 21117
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+  startupProbe:
+    enabled: true
+    tcpSocket:
+      port: 21117
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 12
 
 # -- Network exposure for the rendezvous (hbbs) and relay (hbbr) servers.
 services:

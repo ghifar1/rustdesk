@@ -41,72 +41,156 @@ spec:
         {{- with .Values.extraContainers }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        - name: {{ include "rustdesk.name" . }}
+        {{- $hbbsCommand := default (list) .Values.hbbs.command }}
+        {{- if eq (len $hbbsCommand) 0 }}
+        {{- $hbbsCommand = list "hbbs" }}
+        {{- end }}
+        {{- $hbbsArgs := list }}
+        {{- $relayAddress := include "rustdesk.relayAddress" . }}
+        {{- if $relayAddress }}
+        {{- $hbbsArgs = append $hbbsArgs "-r" }}
+        {{- $hbbsArgs = append $hbbsArgs $relayAddress }}
+        {{- end }}
+        {{- if .Values.server.encryptedOnly }}
+        {{- $hbbsArgs = append $hbbsArgs "-k" }}
+        {{- $hbbsArgs = append $hbbsArgs "_" }}
+        {{- end }}
+        {{- $hbbsUserArgs := default (list) .Values.hbbs.args }}
+        {{- if gt (len $hbbsUserArgs) 0 }}
+        {{- $hbbsArgs = concat $hbbsArgs $hbbsUserArgs }}
+        {{- end }}
+        - name: hbbs
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- $command := .Values.command | default (list) }}
-          {{- if gt (len $command) 0 }}
+          workingDir: /data
           command:
-            {{- toYaml $command | nindent 12 }}
-          {{- end }}
-          {{- $args := .Values.args | default (list) }}
-          {{- if gt (len $args) 0 }}
+            {{- toYaml $hbbsCommand | nindent 12 }}
+          {{- if gt (len $hbbsArgs) 0 }}
           args:
-            {{- toYaml $args | nindent 12 }}
+            {{- toYaml $hbbsArgs | nindent 12 }}
           {{- end }}
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- $hbbsPortsEnabled := and .Values.services.hbbs.enabled (gt (len .Values.services.hbbs.ports) 0) }}
-          {{- $hbbrPortsEnabled := and .Values.services.hbbr.enabled (gt (len .Values.services.hbbr.ports) 0) }}
-          {{- if or $hbbsPortsEnabled $hbbrPortsEnabled (and .Values.udpService.enabled .Values.udpService.port) }}
           ports:
-            {{- if $hbbsPortsEnabled }}
             {{- range $index, $port := .Values.services.hbbs.ports }}
             {{- $containerPort := $port.containerPort | default $port.targetPort | default $port.port }}
             - name: {{ $port.name | default (printf "hbbs-%d" $index) }}
               containerPort: {{ $containerPort }}
               protocol: {{ $port.protocol | default "TCP" }}
             {{- end }}
+            {{- if and .Values.udpService.enabled .Values.udpService.port }}
+            - name: {{ .Values.udpService.name | default "hbbs-udp" }}
+              containerPort: {{ .Values.udpService.targetPort | default .Values.udpService.port }}
+              protocol: UDP
             {{- end }}
-            {{- if $hbbrPortsEnabled }}
+          {{- $hbbsEnvGlobal := default (list) .Values.env }}
+          {{- $hbbsEnvLocal := default (list) .Values.hbbs.env }}
+          {{- if or (gt (len $hbbsEnvGlobal) 0) (gt (len $hbbsEnvLocal) 0) }}
+          env:
+            {{- if gt (len $hbbsEnvGlobal) 0 }}
+            {{- toYaml $hbbsEnvGlobal | nindent 12 }}
+            {{- end }}
+            {{- if gt (len $hbbsEnvLocal) 0 }}
+            {{- toYaml $hbbsEnvLocal | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.hbbs.livenessProbe.enabled }}
+          livenessProbe:
+            {{- omit .Values.hbbs.livenessProbe "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .Values.hbbs.readinessProbe.enabled }}
+          readinessProbe:
+            {{- omit .Values.hbbs.readinessProbe "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .Values.hbbs.startupProbe.enabled }}
+          startupProbe:
+            {{- omit .Values.hbbs.startupProbe "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.persistence.enabled .Values.config.enabled (gt (len .Values.extraVolumeMounts) 0) }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: {{ .Values.config.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+        {{- $hbbrCommand := default (list) .Values.hbbr.command }}
+        {{- if eq (len $hbbrCommand) 0 }}
+        {{- $hbbrCommand = list "hbbr" }}
+        {{- end }}
+        {{- $hbbrArgs := list }}
+        {{- if .Values.server.encryptedOnly }}
+        {{- $hbbrArgs = append $hbbrArgs "-k" }}
+        {{- $hbbrArgs = append $hbbrArgs "_" }}
+        {{- end }}
+        {{- $hbbrUserArgs := default (list) .Values.hbbr.args }}
+        {{- if gt (len $hbbrUserArgs) 0 }}
+        {{- $hbbrArgs = concat $hbbrArgs $hbbrUserArgs }}
+        {{- end }}
+        - name: hbbr
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          workingDir: /data
+          command:
+            {{- toYaml $hbbrCommand | nindent 12 }}
+          {{- if gt (len $hbbrArgs) 0 }}
+          args:
+            {{- toYaml $hbbrArgs | nindent 12 }}
+          {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
             {{- range $index, $port := .Values.services.hbbr.ports }}
             {{- $containerPort := $port.containerPort | default $port.targetPort | default $port.port }}
             - name: {{ $port.name | default (printf "hbbr-%d" $index) }}
               containerPort: {{ $containerPort }}
               protocol: {{ $port.protocol | default "TCP" }}
             {{- end }}
+          {{- $hbbrEnvGlobal := default (list) .Values.env }}
+          {{- $hbbrEnvLocal := default (list) .Values.hbbr.env }}
+          {{- if or (gt (len $hbbrEnvGlobal) 0) (gt (len $hbbrEnvLocal) 0) }}
+          env:
+            {{- if gt (len $hbbrEnvGlobal) 0 }}
+            {{- toYaml $hbbrEnvGlobal | nindent 12 }}
             {{- end }}
-            {{- if and .Values.udpService.enabled .Values.udpService.port }}
-            - name: {{ .Values.udpService.name | default "hbbs-udp" }}
-              containerPort: {{ .Values.udpService.targetPort | default .Values.udpService.port }}
-              protocol: UDP
+            {{- if gt (len $hbbrEnvLocal) 0 }}
+            {{- toYaml $hbbrEnvLocal | nindent 12 }}
             {{- end }}
           {{- end }}
-          env:
-            - name: RELAY
-              value: {{ include "rustdesk.relayAddress" . | quote }}
-            - name: ENCRYPTED_ONLY
-              value: {{ ternary "1" "0" .Values.server.encryptedOnly | quote }}
-            {{- if .Values.env }}
-            {{- toYaml .Values.env | nindent 12 }}
-            {{- end }}
           {{- with .Values.envFrom }}
           envFrom:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if .Values.livenessProbe.enabled }}
+          {{- if .Values.hbbr.livenessProbe.enabled }}
           livenessProbe:
-            {{- omit .Values.livenessProbe "enabled" | toYaml | nindent 12 }}
+            {{- omit .Values.hbbr.livenessProbe "enabled" | toYaml | nindent 12 }}
           {{- end }}
-          {{- if .Values.readinessProbe.enabled }}
+          {{- if .Values.hbbr.readinessProbe.enabled }}
           readinessProbe:
-            {{- omit .Values.readinessProbe "enabled" | toYaml | nindent 12 }}
+            {{- omit .Values.hbbr.readinessProbe "enabled" | toYaml | nindent 12 }}
           {{- end }}
-          {{- if .Values.startupProbe.enabled }}
+          {{- if .Values.hbbr.startupProbe.enabled }}
           startupProbe:
-            {{- omit .Values.startupProbe "enabled" | toYaml | nindent 12 }}
+            {{- omit .Values.hbbr.startupProbe "enabled" | toYaml | nindent 12 }}
           {{- end }}
           {{- with .Values.resources }}
           resources:

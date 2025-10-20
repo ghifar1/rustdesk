@@ -1,0 +1,162 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "rustdesk.fullname" . }}
+  labels:
+    {{- include "rustdesk.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "rustdesk.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "rustdesk.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      serviceAccountName: {{ include "rustdesk.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        - name: {{ include "rustdesk.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- $hbbsPortsEnabled := and .Values.services.hbbs.enabled (gt (len .Values.services.hbbs.ports) 0) }}
+          {{- $hbbrPortsEnabled := and .Values.services.hbbr.enabled (gt (len .Values.services.hbbr.ports) 0) }}
+          {{- if or $hbbsPortsEnabled $hbbrPortsEnabled (and .Values.udpService.enabled .Values.udpService.port) }}
+          ports:
+            {{- if $hbbsPortsEnabled }}
+            {{- range $index, $port := .Values.services.hbbs.ports }}
+            {{- $containerPort := $port.containerPort | default $port.targetPort | default $port.port }}
+            - name: {{ $port.name | default (printf "hbbs-%d" $index) }}
+              containerPort: {{ $containerPort }}
+              protocol: {{ $port.protocol | default "TCP" }}
+            {{- end }}
+            {{- end }}
+            {{- if $hbbrPortsEnabled }}
+            {{- range $index, $port := .Values.services.hbbr.ports }}
+            {{- $containerPort := $port.containerPort | default $port.targetPort | default $port.port }}
+            - name: {{ $port.name | default (printf "hbbr-%d" $index) }}
+              containerPort: {{ $containerPort }}
+              protocol: {{ $port.protocol | default "TCP" }}
+            {{- end }}
+            {{- end }}
+            {{- if and .Values.udpService.enabled .Values.udpService.port }}
+            - name: {{ .Values.udpService.name | default "hbbs-udp" }}
+              containerPort: {{ .Values.udpService.targetPort | default .Values.udpService.port }}
+              protocol: UDP
+            {{- end }}
+          {{- end }}
+          env:
+            - name: RELAY
+              value: {{ include "rustdesk.relayAddress" . | quote }}
+            - name: ENCRYPTED_ONLY
+              value: {{ ternary "1" "0" .Values.server.encryptedOnly | quote }}
+            {{- if .Values.env }}
+            {{- toYaml .Values.env | nindent 12 }}
+            {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            {{- omit .Values.livenessProbe "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            {{- omit .Values.readinessProbe "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            {{- omit .Values.startupProbe "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.persistence.enabled .Values.config.enabled (gt (len .Values.extraVolumeMounts) 0) }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+            {{- if .Values.config.enabled }}
+            - name: config
+              mountPath: {{ .Values.config.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          {{- if .Values.persistence.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim }}
+          {{- else }}
+          persistentVolumeClaim:
+            claimName: {{ include "rustdesk.fullname" . }}-data
+          {{- end }}
+        {{- end }}
+        {{- if .Values.config.enabled }}
+        - name: config
+          configMap:
+            name: {{ include "rustdesk.fullname" . }}-config
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}

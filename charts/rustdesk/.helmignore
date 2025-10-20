@@ -1,0 +1,21 @@
+# Patterns to ignore when building packages.
+# This is the default Helm .helmignore content.
+.DS_Store
+# Common VCS dirs
+.git/
+.gitignore
+.gitmodules
+.gitconfig
+# IDE files
+.idea/
+.project
+.vscode/
+# Other metadata files
+*.swp
+*.bak
+*.tmp
+*.orig
+*.out
+# Node and Rust build directories
+node_modules/
+target/

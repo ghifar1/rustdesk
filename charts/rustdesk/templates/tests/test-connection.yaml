@@ -1,0 +1,17 @@
+{{- if and .Values.services.hbbs.enabled (gt (len .Values.services.hbbs.ports) 0) }}
+{{- $hbbsPort := (index .Values.services.hbbs.ports 0).port | default 21115 }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "rustdesk.fullname" . }}-test"
+  labels:
+    {{- include "rustdesk.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: curl
+      image: curlimages/curl:8.10.1
+      command: ['sh', '-c', 'curl -sf {{ include "rustdesk.hbbsServiceName" . }}:{{ $hbbsPort }} || exit 1']
+  restartPolicy: Never
+{{- end }}

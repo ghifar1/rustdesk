@@ -1,0 +1,184 @@
+# Default configuration for the RustDesk server (hbbs + hbbr) Helm chart.
+# Update these values or provide an override file before deploying.
+
+# -- Number of RustDesk pods to run (one pod manages both hbbs and hbbr).
+replicaCount: 1
+
+# -- Container image used for both hbbs and hbbr binaries.
+image:
+  repository: rustdesk/rustdesk-server
+  tag: "1.1.14"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+command: []
+args: []
+
+# -- Server-specific options. Adjust RELAY endpoint behaviour here.
+server:
+  # relayAddress overrides RELAY entirely when set (host:port or templated string).
+  relayAddress: ""
+  # relayHost and relayPort are used when relayAddress is empty. Leave host empty to fall back to the hbbr Service DNS.
+  relayHost: ""
+  relayPort: 21117
+  encryptedOnly: false
+
+env: []
+envFrom: []
+
+# Health probes reuse the bundled /usr/bin/healthcheck.sh from the upstream image.
+livenessProbe:
+  enabled: true
+  exec:
+    command:
+      - /usr/bin/healthcheck.sh
+  initialDelaySeconds: 15
+  periodSeconds: 15
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  exec:
+    command:
+      - /usr/bin/healthcheck.sh
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 3
+  successThreshold: 1
+  failureThreshold: 3
+
+startupProbe:
+  enabled: true
+  exec:
+    command:
+      - /usr/bin/healthcheck.sh
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 2
+  failureThreshold: 12
+
+# -- Network exposure for the rendezvous (hbbs) and relay (hbbr) servers.
+services:
+  hbbs:
+    enabled: true
+    type: ClusterIP
+    annotations: {}
+    ports:
+      - name: hbbs
+        port: 21115
+        targetPort: 21115
+        protocol: TCP
+      - name: hbbs-ws
+        port: 21116
+        targetPort: 21116
+        protocol: TCP
+      - name: hbbs-ws-public
+        port: 21118
+        targetPort: 21118
+        protocol: TCP
+  hbbr:
+    enabled: true
+    type: ClusterIP
+    annotations: {}
+    ports:
+      - name: hbbr
+        port: 21117
+        targetPort: 21117
+        protocol: TCP
+      - name: hbbr-ws-public
+        port: 21119
+        targetPort: 21119
+        protocol: TCP
+
+# -- UDP service exposes NAT traversal traffic for hbbs.
+udpService:
+  enabled: true
+  name: hbbs-udp
+  type: ClusterIP
+  annotations: {}
+  port: 21116
+  targetPort: 21116
+
+ingress:
+  # Enable HTTP ingress and optionally terminate TLS via cert-manager/Let's Encrypt.
+  enabled: false
+  className: ""
+  annotations: {}
+  # annotations:
+  #   cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: rustdesk.local
+      # Replace with the public hostname that matches your TLS certificate.
+      paths:
+        - path: /
+          pathType: Prefix
+  # Example for cert-manager:
+  # tls:
+  #   - secretName: rustdesk-tls
+  #     hosts:
+  #       - rustdesk.example.com
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: null
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+topologySpreadConstraints: []
+
+priorityClassName: ""
+
+extraVolumes: []
+
+extraVolumeMounts: []
+
+extraContainers: []
+
+# -- Persistent storage for server keys, logs, and metadata shared by hbbs/hbbr.
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  annotations: {}
+  accessModes:
+    - ReadWriteOnce
+  size: 5Gi
+  mountPath: /data
+
+config:
+  enabled: false
+  mountPath: /etc/rustdesk
+  data: {}

@@ -1,0 +1,15 @@
+apiVersion: v2
+name: rustdesk
+description: Helm chart for deploying the RustDesk application container.
+type: application
+version: 0.1.0
+appVersion: "1.1.14"
+home: https://rustdesk.com
+sources:
+  - https://github.com/rustdesk/rustdesk
+keywords:
+  - rustdesk
+  - remote-desktop
+  - remote-control
+annotations:
+  category: remote-desktop

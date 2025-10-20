@@ -1,0 +1,27 @@
+{{- $hbbsServiceName := include "rustdesk.hbbsServiceName" . -}}
+{{- $hbbsPort := 21115 -}}
+{{- if and .Values.services.hbbs.enabled (gt (len .Values.services.hbbs.ports) 0) -}}
+  {{- $first := index .Values.services.hbbs.ports 0 -}}
+  {{- if $first.port -}}
+    {{- $hbbsPort = $first.port -}}
+  {{- end -}}
+{{- end -}}
+{{- if .Values.services.hbbs.enabled }}
+1. Get the application URL by running these commands:
+{{- if .Values.ingress.enabled }}
+  {{- range .Values.ingress.hosts }}
+  http{{ if (index $.Values.ingress.tls 0) }}s{{ end }}://{{ .host }}{{ (index .paths 0).path }}
+  {{- end }}
+{{- else if contains "NodePort" .Values.services.hbbs.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ $hbbsServiceName }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "Visit http://$NODE_IP:$NODE_PORT"
+{{- else if contains "LoadBalancer" .Values.services.hbbs.type }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+  Watch the status: kubectl get svc -n {{ .Release.Namespace }} {{ $hbbsServiceName }}
+{{- else }}
+  kubectl port-forward svc/{{ $hbbsServiceName }} -n {{ .Release.Namespace }} {{ $hbbsPort }}:{{ $hbbsPort }}
+{{- end }}
+{{- else }}
+This release does not create a Service; expose the pods manually if required.
+{{- end }}

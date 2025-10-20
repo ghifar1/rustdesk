@@ -1,0 +1,84 @@
+{{- if and .Values.services.hbbs.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rustdesk.hbbsServiceName" . }}
+  labels:
+    {{- include "rustdesk.labels" . | nindent 4 }}
+  {{- with .Values.services.hbbs.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.services.hbbs.type }}
+  selector:
+    {{- include "rustdesk.selectorLabels" . | nindent 4 }}
+  ports:
+    {{- range $index, $port := .Values.services.hbbs.ports }}
+    - name: {{ $port.name | default (printf "hbbs-%d" $index) }}
+      port: {{ $port.port }}
+      targetPort: {{ $port.targetPort | default $port.port }}
+      protocol: {{ $port.protocol | default "TCP" }}
+      {{- with $port.nodePort }}
+      nodePort: {{ . }}
+      {{- end }}
+      {{- with $port.appProtocol }}
+      appProtocol: {{ . }}
+      {{- end }}
+    {{- end }}
+{{- end }}
+{{- if and .Values.services.hbbr.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rustdesk.hbbrServiceName" . }}
+  labels:
+    {{- include "rustdesk.labels" . | nindent 4 }}
+  {{- with .Values.services.hbbr.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.services.hbbr.type }}
+  selector:
+    {{- include "rustdesk.selectorLabels" . | nindent 4 }}
+  ports:
+    {{- range $index, $port := .Values.services.hbbr.ports }}
+    - name: {{ $port.name | default (printf "hbbr-%d" $index) }}
+      port: {{ $port.port }}
+      targetPort: {{ $port.targetPort | default $port.port }}
+      protocol: {{ $port.protocol | default "TCP" }}
+      {{- with $port.nodePort }}
+      nodePort: {{ . }}
+      {{- end }}
+      {{- with $port.appProtocol }}
+      appProtocol: {{ . }}
+      {{- end }}
+    {{- end }}
+{{- end }}
+{{- if .Values.udpService.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rustdesk.fullname" . }}-udp
+  labels:
+    {{- include "rustdesk.labels" . | nindent 4 }}
+  {{- with .Values.udpService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.udpService.type }}
+  selector:
+    {{- include "rustdesk.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: {{ .Values.udpService.name | default "hbbs-udp" }}
+      port: {{ .Values.udpService.port }}
+      targetPort: {{ .Values.udpService.targetPort | default .Values.udpService.port }}
+      protocol: UDP
+      {{- with .Values.udpService.nodePort }}
+      nodePort: {{ . }}
+      {{- end }}
+{{- end }}
